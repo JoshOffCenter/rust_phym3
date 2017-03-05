@@ -11,6 +11,9 @@
 use std::collections::HashMap;
 use std::process;
 use std::fmt;
+use std::result;
+
+
 
 /*----------------------------------------------------------------------------*/
 /* macros                                                                     */
@@ -21,6 +24,10 @@ macro_rules! fail {
     ($inp: expr) => {
         process::exit(fail($inp));
     }
+}
+// for making a vector of string without having to call to_string() on each
+macro_rules! vec_of_strings {
+    ($($x:expr),*) => (vec![$($x.to_string()),*]);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -145,6 +152,7 @@ fn build_base_env() -> Env {
     add_binop_env(&mut base_env, "*");
     add_binop_env(&mut base_env, "/");
     add_binop_env(&mut base_env, "<=");
+    add_binop_env(&mut base_env, "eq?");
 
     base_env.insert(String::from("true"), Value::Bool{ b: true });
     base_env.insert(String::from("false"), Value::Bool{ b: false });
@@ -284,6 +292,34 @@ fn phym_div(a : Value, b : Value) -> Value {
     }
 }
 
+fn phym_eq(x : Value, y : Value) -> Value {
+    match x {
+        Value::Num { n } => {
+            let l = n;
+            match y {
+                Value::Num { n } => {
+                   let r = n;
+                   Value::Bool{ b : l == r }
+                }
+                _ => Value::Bool{ b : false }
+            }
+        },
+        Value::Bool { b } => {
+            let l = b;
+            match y {
+                Value::Bool { b } => {
+                   let r = b;
+                   Value::Bool{ b : l == r }
+                },
+                _ => Value::Bool{ b : false }
+            }
+        },
+        _ => Value::Bool{ b : false }
+        
+    }
+
+}
+
 /*----------------------------------------------------------------------------*/
 /* map_binop                                                                  */
 /*----------------------------------------------------------------------------*/
@@ -300,6 +336,7 @@ fn interp_binop(op : String, a : Value, b : Value) -> Value {
          "*" => phym_mult(a, b),
          "/" => phym_div(a, b),
          "<=" => phym_leq(a, b),
+         "eq?" => phym_eq(a,b),
          _ => fail!("invalid binary operator")
     }
 }
@@ -410,19 +447,63 @@ fn serialize(val : Value) -> String {
 }
 
 /*----------------------------------------------------------------------------*/
+/* isNum / toNum                                                                  */
+/*----------------------------------------------------------------------------*/
+
+/*
+    helpers to check if a string can be translated to a number and does it
+*/
+
+fn isNum(numStr : String) -> bool {
+    let res = numStr.parse::<i32>();
+    match res {
+        Ok(val) => true,
+        Err(E) => false
+    }
+}
+
+fn toNum(numStr : String) -> i32 {
+    numStr.parse::<i32>().unwrap()
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* parse                                                                  */
+/*----------------------------------------------------------------------------*/
+
+/*
+    takes a program (vector of strings) and parses to ExprC
+*/
+
+/*fn parse(prog : Vec<String>) -> ExprC {
+    let ops = vec_of_strings!(["+","-","*","/","eq?","<="]);
+    match prog[0] {
+        op if ops.iter().any(|x| x.eq(op)) => {
+            let left = prog[1];
+            let right = prog[2];
+            ExprC::Binop{s:op,l:parse([left]),r:parse([right])}
+        },
+        numStr if isNum(numStr) => ExprC::Num{n:toNum(numStr)}
+    }
+}*/
+
+/*----------------------------------------------------------------------------*/
 /* main                                                                       */
 /*----------------------------------------------------------------------------*/
 
 fn main() {
     let base_env = build_base_env();
-    let arg1 = ExprC::Num{ n : 10 };
+    let arg1 = ExprC::Num{ n : 20 };
     let arg2 = ExprC::Num{ n : 20 };
     let mut args : Vec<ExprC> = Vec::new();
     args.push(arg1);
     args.push(arg2);
-    let id_box = Box::new(ExprC::Id{ s : String::from("+") });
-    let test_app = ExprC::App{ app: id_box, args : args };
+    let plus_box = Box::new(ExprC::Id{ s : String::from("+") });
+    let eq_box = Box::new(ExprC::Id{ s : String::from("eq?") });
+    //let test_plus = ExprC::App{ app: plus_box, args : args };
+    let eq_plus = ExprC::App{ app: eq_box, args : args };
 
 
-    println!("{}", serialize(interp(test_app, base_env)))
+    //println!("{}", serialize(interp(test_plus, base_env)));
+    println!("{}", serialize(interp(eq_plus, base_env)))
 }
