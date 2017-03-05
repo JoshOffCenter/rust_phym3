@@ -5,9 +5,13 @@
 /******************************************************************************/
 
 /*----------------------------------------------------------------------------*/
+/* unstable features (needs nightly rust:https://doc.rust-lang.org/book/nightly-rust.html)*/
+/*----------------------------------------------------------------------------*/
+#![feature(advanced_slice_patterns, slice_patterns)]
+
+/*----------------------------------------------------------------------------*/
 /* needed libraries                                                           */
 /*----------------------------------------------------------------------------*/
-
 use std::collections::HashMap;
 use std::process;
 use std::fmt;
@@ -24,10 +28,6 @@ macro_rules! fail {
     ($inp: expr) => {
         process::exit(fail($inp));
     }
-}
-// for making a vector of string without having to call to_string() on each
-macro_rules! vec_of_strings {
-    ($($x:expr),*) => (vec![$($x.to_string()),*]);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -48,6 +48,12 @@ pub enum ExprC {
     Lam { params : Vec<String>, body : Box<ExprC> },
     Binop { op : String, left : Box<ExprC>, right : Box<ExprC> },
     App { app : Box<ExprC>, args : Vec<ExprC> }
+}
+
+#[derive(Clone, Debug)]
+pub enum ParseC {
+    Elem {e : String},
+    List {l : Vec<String> }
 }
 
 /*----------------------------------------------------------------------------*/
@@ -454,7 +460,7 @@ fn serialize(val : Value) -> String {
     helpers to check if a string can be translated to a number and does it
 */
 
-fn isNum(numStr : String) -> bool {
+fn isNum(numStr : &str) -> bool {
     let res = numStr.parse::<i32>();
     match res {
         Ok(val) => true,
@@ -462,7 +468,7 @@ fn isNum(numStr : String) -> bool {
     }
 }
 
-fn toNum(numStr : String) -> i32 {
+fn toNum(numStr : &str) -> i32 {
     numStr.parse::<i32>().unwrap()
 }
 
@@ -472,20 +478,40 @@ fn toNum(numStr : String) -> i32 {
 /*----------------------------------------------------------------------------*/
 
 /*
-    takes a program (vector of strings) and parses to ExprC
+    takes a str and parses to ExprC
 */
 
-/*fn parse(prog : Vec<String>) -> ExprC {
-    let ops = vec_of_strings!(["+","-","*","/","eq?","<="]);
-    match prog[0] {
-        op if ops.iter().any(|x| x.eq(op)) => {
-            let left = prog[1];
-            let right = prog[2];
-            ExprC::Binop{s:op,l:parse([left]),r:parse([right])}
-        },
-        numStr if isNum(numStr) => ExprC::Num{n:toNum(numStr)}
+fn parse(p : &str) -> ExprC {
+    let ops = vec!(["+","-","*","/","eq?","<="]);
+
+    if p.contains('{') {
+        //list
+        let s = &p[1..p.len()-1];
+        let l : Vec<&str> = s.split(" ").collect();
+        match &l[..] {
+            &[op, left, right] if ops.iter().any(|x| op == x) =>
+                { 
+                    ExprC::Binop{op : op.to_string(),
+                                left: Box::new(parse(left)),
+                                right: Box::new(parse(right))}
+                },
+            /*&["if", test, t, f] =>
+            &["lam", params, body] => {
+
+            }*/
+            _ => fail!("unimplemented")
+        }
     }
-}*/
+    else {
+        //non list - num or id
+        if isNum(p) {
+            ExprC::Num{ n : toNum(p)}
+        }
+        else {
+            ExprC::Id{ s : p.to_string() }
+        }
+    }   
+}
 
 /*----------------------------------------------------------------------------*/
 /* main                                                                       */
@@ -493,7 +519,7 @@ fn toNum(numStr : String) -> i32 {
 
 fn main() {
     let base_env = build_base_env();
-    let arg1 = ExprC::Num{ n : 20 };
+     /*let arg1 = ExprC::Num{ n : 20 };
     let arg2 = ExprC::Num{ n : 20 };
     let mut args : Vec<ExprC> = Vec::new();
     args.push(arg1);
@@ -505,5 +531,7 @@ fn main() {
 
 
     //println!("{}", serialize(interp(test_plus, base_env)));
-    println!("{}", serialize(interp(eq_plus, base_env)))
+    println!("{}", serialize(interp(eq_plus, base_env)))*/
+    println!("{}", serialize(interp(parse("{+ 1 2}"),base_env)));
+    //println!("{}", serialize(interp(parse("true"),base_env)))
 }
