@@ -113,7 +113,7 @@ fn build_env(env : Env, keys : Vec<String>, vals : Vec<Value>) -> Env {
 
 fn lookup_env(env : Env, key : String) -> Value {
     if !env.contains_key(&key) {
-        fail!("environment does not contain key");
+        panic!("environment does not contain key");
     }
     return env.get(&key).unwrap().clone();
 }
@@ -179,7 +179,7 @@ fn build_base_env() -> Env {
 fn unwrap_bool(val : Value) -> bool {
     match val {
         Value::Bool { b } => b,
-        _ => fail!("cannot evaluate non-boolean values in if statement")
+        _ => panic!("cannot evaluate non-boolean values in if statement")
     }
 }
 
@@ -198,10 +198,10 @@ fn phym_plus(a : Value, b : Value) -> Value {
             match b {
                 Value::Num { n } =>
                     Value::Num{ n : n_a + n },
-                _ => fail!("cannot add non-numbers")
+                _ => panic!("cannot add non-numbers")
             }
         }
-        _ => fail!("cannot add non-numbers")
+        _ => panic!("cannot add non-numbers")
     }
 }
 
@@ -220,10 +220,10 @@ fn phym_sub(a : Value, b : Value) -> Value {
             match b {
                 Value::Num { n } =>
                     Value::Num{ n : n_a - n },
-                _ => fail!("cannot subtract non-numbers")
+                _ => panic!("cannot subtract non-numbers")
             }
         }
-        _ => fail!("cannot subctract non-numbers")
+        _ => panic!("cannot subctract non-numbers")
     }
 }
 
@@ -242,10 +242,10 @@ fn phym_mult(a : Value, b : Value) -> Value {
             match b {
                 Value::Num { n } =>
                     Value::Num{ n : n_a * n },
-                _ => fail!("cannot multiply non-numbers")
+                _ => panic!("cannot multiply non-numbers")
             }
         }
-        _ => fail!("cannot multiply non-numbers")
+        _ => panic!("cannot multiply non-numbers")
     }
 }
 
@@ -265,10 +265,10 @@ fn phym_leq(a : Value, b : Value) -> Value {
             match b {
                 Value::Num { n } =>
                     Value::Bool{ b : n_a <= n },
-                _ => fail!("cannot compare non-numbers")
+                _ => panic!("cannot compare non-numbers")
             }
         }
-        _ => fail!("cannot compare non-numbers")
+        _ => panic!("cannot compare non-numbers")
     }
 }
 
@@ -288,14 +288,14 @@ fn phym_div(a : Value, b : Value) -> Value {
             match b {
                 Value::Num { n } => {
                     if n == 0 {
-                        fail!("cannot divide by zero");
+                        panic!("cannot divide by zero");
                     }
                     Value::Num{ n : n_a / n }
                 },
-                _ => fail!("cannot divide non-numbers")
+                _ => panic!("cannot divide non-numbers")
             }
         }
-        _ => fail!("cannot divide non-numbers")
+        _ => panic!("cannot divide non-numbers")
     }
 }
 
@@ -344,7 +344,7 @@ fn interp_binop(op : String, a : Value, b : Value) -> Value {
          "/" => phym_div(a, b),
          "<=" => phym_leq(a, b),
          "eq?" => phym_eq(a,b),
-         _ => fail!("invalid binary operator")
+         _ => panic!("invalid binary operator")
     }
 }
 
@@ -387,10 +387,10 @@ fn interp_app(app : ExprC, args : Vec<ExprC>, env : Env) -> Value {
                 interp(body, up_env)
             }
             else {
-                fail!("incorrect number of arguments");
+                panic!("incorrect number of arguments");
             }
         },
-        _ => fail!("not a valid application")
+        _ => panic!("not a valid application")
     }
 }
 
