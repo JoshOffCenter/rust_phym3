@@ -6,6 +6,7 @@ https://doc.rust-lang.org/book/nightly-rust.html
 Then build it and run it with cargo as it uses the Sexp Crate:
 cargo build
 cargo run [PHYM3]
+cargo test
 
 ex:
 cargo run "(+ 2 4)"
