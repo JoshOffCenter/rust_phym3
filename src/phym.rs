@@ -518,3 +518,306 @@ pub fn top_interp(s : &str) -> String {
     let sexp = sexp::parse(s).unwrap();
     serialize(interp(parse(sexp),base_env))
 }
+
+// Conditionally compile the module `test` only when the test-suite is run.
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /*----------------------------------------------------------------------------*/
+    /* serialize tests                                                            */
+    /*----------------------------------------------------------------------------*/
+
+    #[test]
+    fn serialize_num_tst() {
+        assert_eq!(serialize (Value::Num { n : 10 }), "10");
+    }
+
+    #[test]
+    fn serialize_bool_tst() {
+        assert_eq!(serialize (Value::Bool { b : true}), "true");
+    }
+
+    #[test]
+    fn serialize_clos_tst() {
+        assert_eq!(serialize (Value::Clos {params : Vec::new(), body : ExprC::Num{n : 10}, clo_env : build_base_env()}), "#procedure");
+    }
+
+    /*----------------------------------------------------------------------------*/
+    /* phym_binops tests                                                          */
+    /*----------------------------------------------------------------------------*/
+
+    #[test]
+    fn phym_plus_tst() {
+        assert_eq!(serialize(phym_plus (Value::Num {n : 2}, Value::Num {n : 4})), "6");
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot add non-numbers")]
+    fn phym_plus_fail_tst() {
+        assert_eq!(serialize(phym_plus (Value::Bool {b : true}, Value::Num {n : 4})), "5");
+    }
+
+    #[test]
+    fn phym_sub_tst() {
+        assert_eq!(serialize(phym_sub (Value:: Num {n : 5}, Value::Num {n : 3})), "2");
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot subtract non-numbers")]
+    fn phym_sub_fail_tst() {
+        assert_eq!(serialize(phym_sub (Value::Bool {b : true}, Value::Num {n : 4})), "5");
+    }
+
+     #[test]
+    fn phym_mult_tst() {
+        assert_eq!(serialize(phym_mult (Value::Num {n : 5}, Value::Num {n : 3})), "15");
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot multiply non-numbers")]
+    fn phym_mult_fail_tst() {
+        assert_eq!(serialize(phym_mult (Value::Num {n : 2}, Value::Bool {b : false})), "5");
+    }
+
+    #[test]
+    fn phym_div_tst() {
+        assert_eq!(serialize(phym_div (Value:: Num {n : 10}, Value::Num {n : 2})), "5");
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot divide non-numbers")]
+    fn phym_div_fail_tst() {
+        assert_eq!(serialize(phym_div (Value::Bool {b : true}, Value::Num {n : 4})), "5");
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot divide by zero")]
+    fn phym_div_by_zero_tst() {
+        assert_eq!(serialize(phym_div (Value::Num {n : 10}, Value::Num {n : 0})), "5");
+    }
+
+    #[test]
+    fn phym_leq_tst() {
+        assert_eq!(serialize(phym_leq (Value:: Num {n : 10}, Value::Num {n : 2})), "false");
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot compare non-numbers")]
+    fn phym_leq_fail_tst() {
+        assert_eq!(serialize(phym_leq (Value::Bool {b : true}, Value::Num {n : 4})), "5");
+    }
+
+    /*----------------------------------------------------------------------------*/
+    /* unwrap_bool tests                                                          */
+    /*----------------------------------------------------------------------------*/
+
+    #[test]
+    fn unwrap_bool_tst() {
+        assert_eq!(unwrap_bool(Value::Bool {b : true}), true);
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot evaluate non-boolean values in if statement")]
+    fn unwrap_bool_fail_tst() {
+        assert!(unwrap_bool(Value::Num {n : 2}));
+    }
+
+    /*----------------------------------------------------------------------------*/
+    /* interp_binop tests                                                         */
+    /*----------------------------------------------------------------------------*/
+
+    #[test]
+    fn interp_binop_tst() {
+        assert_eq!(serialize(interp_binop(String::from("+"), Value::Num{ n : 2}, Value::Num{n : 2})), "4");
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid binary operator")]
+    fn interp_binop_fail_tst() {
+        assert_eq!(serialize(interp_binop(String::from("&"), Value::Num{ n : 2}, Value::Num{n : 2})), "4");
+    }
+
+    /*----------------------------------------------------------------------------*/
+    /* interp tests                                                               */
+    /*----------------------------------------------------------------------------*/
+
+    #[test]
+    fn interp_tst_num() {
+        assert_eq!(serialize (interp(ExprC::Num {n : 2}, build_base_env())), "2")
+    }
+
+    #[test]
+    fn interp_tst_id() {
+        let mut tst_env : Env = HashMap::new();
+        tst_env.insert(String::from("a"), Value::Num{ n : 5 });
+
+        assert_eq!(serialize(interp(ExprC::Id {s : String::from("a")}, tst_env)), "5")
+    }
+
+    #[test]
+    fn interp_tst_if() {
+        let case_box = Box::new(ExprC::Id{ s : String::from("true")});
+        let succ_box = Box::new(ExprC::Num{n : 4});
+        let fail_box = Box::new(ExprC::Num{n : 0});
+
+        assert_eq!(serialize (interp(ExprC::If {case : case_box, succ : succ_box, fail : fail_box}, build_base_env())), "4");
+    }
+
+    #[test]
+    fn interp_tst_lam() {
+        let mut pars : Vec<String> = Vec::new();
+        pars.push(String::from("val"));
+
+        let lft = Box::new(ExprC::Num{n : 1});
+        let rt = Box::new(ExprC::Num{n : 1});
+        let b = Box::new(ExprC::Binop{op : String::from("+"), left : lft, right : rt});
+
+        assert_eq!(serialize(interp(ExprC::Lam {params : pars, body : b}, build_base_env())), "#procedure");
+    }
+
+    #[test]
+    fn interp_tst_binop() {
+        let lft = Box::new(ExprC::Num{n : 2});
+        let rt = Box::new(ExprC::Num{n : 4});
+
+        assert_eq!(serialize(interp(ExprC::Binop {op : String::from("*"), left : lft, right : rt}, build_base_env())), "8");
+    }
+
+    #[test]
+    fn interp_tst_app() {
+        let mut pars : Vec<String> = Vec::new();
+        pars.push(String::from("val"));
+
+        let lft = Box::new(ExprC::Id{s : String::from("val")});
+        let rt = Box::new(ExprC::Num{n : 1});
+        let b = Box::new(ExprC::Binop{op : String::from("+"), left : lft, right : rt});
+
+        let the_app = Box::new(ExprC::Lam {params : pars, body: b});
+
+        let mut the_args : Vec<ExprC> = Vec::new();
+        the_args.push(ExprC::Num{n : 5});
+
+        assert_eq!(serialize(interp(ExprC::App {app : the_app, args : the_args}, build_base_env())), "6");
+    }
+
+    
+    /*----------------------------------------------------------------------------*/
+    /* interp_app tests                                                           */
+    /*----------------------------------------------------------------------------*/
+    
+    #[test]
+    #[should_panic(expected = "incorrect number of arguments")]
+    fn interp_app_fail_tst_1 () {
+        let mut pars : Vec<String> = Vec::new();
+        pars.push(String::from("val"));
+
+        let lft = Box::new(ExprC::Id{s : String::from("val")});
+        let rt = Box::new(ExprC::Num{n : 1});
+        let b = Box::new(ExprC::Binop{op : String::from("+"), left : lft, right : rt});
+
+        let the_app = ExprC::Lam {params : pars, body: b};
+
+        let mut the_args : Vec<ExprC> = Vec::new();
+        the_args.push(ExprC::Num{n : 5});
+        the_args.push(ExprC::Num{n : 2});
+
+        assert_eq!(serialize(interp_app(the_app, the_args, build_base_env())), "6");
+    }
+
+    #[test]
+    #[should_panic(expected = "not a valid application")]
+    fn interp_app_fail_tst_2 () {
+        let mut pars : Vec<String> = Vec::new();
+        pars.push(String::from("val"));
+
+        let the_app = ExprC::Num {n : 4};
+
+        let mut the_args : Vec<ExprC> = Vec::new();
+        the_args.push(ExprC::Num{n : 5});
+        the_args.push(ExprC::Num{n : 2});
+
+        assert_eq!(serialize(interp_app(the_app, the_args, build_base_env())), "6");
+    }
+
+    /*----------------------------------------------------------------------------*/
+    /* lookup_env tests                                                           */
+    /*----------------------------------------------------------------------------*/
+
+    #[test]
+    fn lookup_env_tst() {
+        let mut tst_env : Env = HashMap::new();
+        tst_env.insert(String::from("a"), Value::Bool{ b: true });
+        assert_eq!((serialize(lookup_env(tst_env, String::from("a")))), "true");
+    }
+
+    #[test]
+    #[should_panic(expected = "environment does not contain key")]
+    fn lookup_env_fail_tst() {
+        let mut tst_env : Env = HashMap::new();
+        tst_env.insert(String::from("a"), Value::Bool{ b: true });
+        assert_eq!((serialize(lookup_env(tst_env, String::from("b")))), "true");
+    }
+
+    /*----------------------------------------------------------------------------*/
+    /* build_env tests                                                            */
+    /*----------------------------------------------------------------------------*/
+
+    fn build_env_help() -> Env {
+        let mut keys : Vec<String> = Vec::new();
+        keys.push(String::from("x"));
+        keys.push(String::from("y"));
+
+        let mut vals : Vec<Value> = Vec::new();
+        vals.push(Value::Num{n : 1});
+        vals.push(Value::Bool{b : false});
+
+        return build_env(HashMap::new(), keys, vals);
+    }
+
+    #[test]
+    fn build_env_tst1() {
+        assert_eq!(serialize(lookup_env(build_env_help(), String::from("x"))), "1")
+    }
+
+    #[test]
+    fn build_env_tst2() {
+        assert_eq!(serialize(lookup_env(build_env_help(), String::from("y"))), "false")
+    }
+
+    /*----------------------------------------------------------------------------*/
+    /* interp_list tests                                                          */
+    /*----------------------------------------------------------------------------*/
+
+    fn create_args() -> Vec<Value> {
+        let mut exps : Vec<ExprC> = Vec::new();
+        exps.push(ExprC::Id{ s : String::from("x")});
+        exps.push(ExprC::Id{ s : String::from("y")});
+        exps.push(ExprC::Num{ n : 8});
+
+        let mut tst_env : Env = HashMap::new();
+        tst_env.insert(String::from("x"), Value::Num{ n : 4 });
+        tst_env.insert(String::from("y"), Value::Bool{ b : false });
+
+        return interp_list(exps, tst_env);
+    }
+
+    #[test]
+    fn interp_list_tst1() {
+        let val0 = create_args()[0].clone();
+        assert_eq!(serialize(val0), "4");
+    } 
+
+     #[test]
+    fn interp_list_tst2() {
+        let val1 = create_args()[1].clone();
+        assert_eq!(serialize(val1), "false");
+    } 
+
+    #[test]
+    fn interp_list_tst3() {
+        let val2 = create_args()[2].clone();
+        assert_eq!(serialize(val2), "8");
+    } 
+}
+
