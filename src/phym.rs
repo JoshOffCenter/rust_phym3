@@ -3,20 +3,27 @@
 /* Date: March 3rd, 2017                                                      */
 /* Assignment 6                                                               */
 /******************************************************************************/
-
 /*----------------------------------------------------------------------------*/
-/* unstable features (needs nightly rust:https://doc.rust-lang.org/book/nightly-rust.html)*/
+/* unstable features                                                            */
 /*----------------------------------------------------------------------------*/
 #![feature(advanced_slice_patterns, slice_patterns)]
+
+/*----------------------------------------------------------------------------*/
+/* external crates                                                            */
+/*----------------------------------------------------------------------------*/
+extern crate sexp;
+
 
 /*----------------------------------------------------------------------------*/
 /* needed libraries                                                           */
 /*----------------------------------------------------------------------------*/
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::process;
 use std::fmt;
 use std::result;
-
+use sexp::Sexp;
+use sexp::Atom;
 
 
 /*----------------------------------------------------------------------------*/
@@ -48,12 +55,6 @@ pub enum ExprC {
     Lam { params : Vec<String>, body : Box<ExprC> },
     Binop { op : String, left : Box<ExprC>, right : Box<ExprC> },
     App { app : Box<ExprC>, args : Vec<ExprC> }
-}
-
-#[derive(Clone, Debug)]
-pub enum ParseC {
-    Elem {e : String},
-    List {l : Vec<String> }
 }
 
 /*----------------------------------------------------------------------------*/
@@ -481,57 +482,39 @@ fn toNum(numStr : &str) -> i32 {
     takes a str and parses to ExprC
 */
 
-fn parse(p : &str) -> ExprC {
-    let ops = vec!(["+","-","*","/","eq?","<="]);
+fn parse(p : Sexp) -> ExprC {
+    let ops : HashSet<&str> = ["+","-","*","/","eq?","<="].iter().cloned().collect();
 
-    if p.contains('{') {
-        //list
-        let s = &p[1..p.len()-1];
-        let l : Vec<&str> = s.split(" ").collect();
-        match &l[..] {
-            &[op, left, right] if ops.iter().any(|x| op == x) =>
-                { 
-                    ExprC::Binop{op : op.to_string(),
-                                left: Box::new(parse(left)),
-                                right: Box::new(parse(right))}
+    match p {
+        Sexp::Atom(a) => {
+            match a {
+                Atom::I(n) => {ExprC::Num{n : n as i32}},
+                Atom::S(s) => {ExprC::Id{s : s}},
+                _ => fail!("unimplemented")
+            }
+        },
+        Sexp::List(v) => {
+            match &v[..] {
+                &[Sexp::Atom(Atom::S(ref op)),ref left,ref right] if ops.contains(op.as_str()) => {
+                    ExprC::Binop{op:op.clone(),
+                    left: Box::new(parse(left.clone())),
+                    right: Box::new(parse(right.clone()))}
                 },
-            /*&["if", test, t, f] =>
-            &["lam", params, body] => {
-
-            }*/
-            _ => fail!("unimplemented")
-        }
-    }
-    else {
-        //non list - num or id
-        if isNum(p) {
-            ExprC::Num{ n : toNum(p)}
-        }
-        else {
-            ExprC::Id{ s : p.to_string() }
-        }
-    }   
+                &[Sexp::Atom(Atom::S(ref if_str)),ref case,ref succ,ref fail] if *if_str == String::from("if") => {
+                    ExprC::If{
+                        case: Box::new(parse(case.clone())),
+                        succ: Box::new(parse(succ.clone())),
+                        fail: Box::new(parse(fail.clone()))}
+                },
+                _ => fail!("couldn't match in parse")
+            }
+        },
+        _ => fail!("couldn't match in parse")
+    }  
 }
 
-/*----------------------------------------------------------------------------*/
-/* main                                                                       */
-/*----------------------------------------------------------------------------*/
-
-fn main() {
+pub fn top_interp(s : &str) -> String {
     let base_env = build_base_env();
-     /*let arg1 = ExprC::Num{ n : 20 };
-    let arg2 = ExprC::Num{ n : 20 };
-    let mut args : Vec<ExprC> = Vec::new();
-    args.push(arg1);
-    args.push(arg2);
-    let plus_box = Box::new(ExprC::Id{ s : String::from("+") });
-    let eq_box = Box::new(ExprC::Id{ s : String::from("eq?") });
-    //let test_plus = ExprC::App{ app: plus_box, args : args };
-    let eq_plus = ExprC::App{ app: eq_box, args : args };
-
-
-    //println!("{}", serialize(interp(test_plus, base_env)));
-    println!("{}", serialize(interp(eq_plus, base_env)))*/
-    println!("{}", serialize(interp(parse("{+ 1 2}"),base_env)));
-    //println!("{}", serialize(interp(parse("true"),base_env)))
+    let sexp = sexp::parse(s).unwrap();
+    serialize(interp(parse(sexp),base_env))
 }

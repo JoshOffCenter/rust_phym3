@@ -1,1 +1,11 @@
 This is an implementation of the PHYM3 programming language written in Rust.
+
+This uses the unstable features slice patterns, and requires the nightly build:
+https://doc.rust-lang.org/book/nightly-rust.html
+
+Then build it and run it with cargo as it uses the Sexp Crate:
+cargo build
+cargo run [PHYM3]
+
+ex:
+cargo run "(+ 2 4)"
