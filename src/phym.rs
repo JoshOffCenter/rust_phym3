@@ -473,6 +473,18 @@ fn toNum(numStr : &str) -> i32 {
     numStr.parse::<i32>().unwrap()
 }
 
+fn getString (p : Sexp) -> String {
+    match p {
+        Sexp::Atom(a) => {
+            match a {
+                Atom::S(s) => s,
+                _ => fail!("atom is not id")
+            }
+        },
+        _ => fail!("Sexp is not atom")
+    }
+}
+
 
 /*----------------------------------------------------------------------------*/
 /* parse                                                                  */
@@ -483,8 +495,6 @@ fn toNum(numStr : &str) -> i32 {
 */
 
 fn parse(p : Sexp) -> ExprC {
-    let ops : HashSet<&str> = ["+","-","*","/","eq?","<="].iter().cloned().collect();
-
     match p {
         Sexp::Atom(a) => {
             match a {
@@ -495,16 +505,23 @@ fn parse(p : Sexp) -> ExprC {
         },
         Sexp::List(v) => {
             match &v[..] {
-                &[Sexp::Atom(Atom::S(ref op)),ref left,ref right] if ops.contains(op.as_str()) => {
-                    ExprC::Binop{op:op.clone(),
-                    left: Box::new(parse(left.clone())),
-                    right: Box::new(parse(right.clone()))}
-                },
                 &[Sexp::Atom(Atom::S(ref if_str)),ref case,ref succ,ref fail] if *if_str == String::from("if") => {
                     ExprC::If{
                         case: Box::new(parse(case.clone())),
                         succ: Box::new(parse(succ.clone())),
                         fail: Box::new(parse(fail.clone()))}
+                },
+                &[Sexp::Atom(Atom::S(ref lam_str)), Sexp::List(ref params),ref body] if *lam_str == String::from("lam") => {
+                    ExprC::Lam{
+                        params: params.clone().iter().map(|x| getString(x.clone())).collect(),
+                        body: Box::new(parse(body.clone()))
+                    }
+                },
+                &[ref closure, ref args..] => {
+                    ExprC::App{
+                        app: Box::new(parse(closure.clone())),
+                        args: args.to_vec().iter().map(|x| parse(x.clone())).collect()
+                    }
                 },
                 _ => fail!("couldn't match in parse")
             }
